@@ -33,6 +33,7 @@ GpuVendor GetGpuVendor(const std::string& gpu_description) {
       {"apple", GpuVendor::kApple},
       {"qualcomm", GpuVendor::kQualcomm},
       {"mali", GpuVendor::kMali},
+      {"maleoon", GpuVendor::kMali},
       {"powervr", GpuVendor::kPowerVR},
       {"advanced micro devices", GpuVendor::kAMD},
       {"intel", GpuVendor::kIntel},
