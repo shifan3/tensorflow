@@ -59,9 +59,7 @@ filegroup(
 
 filegroup(
     name = "native_hdrs",
-    srcs = [
-        "op_resolver_lazy_delegate_proxy.h",
-    ],
+    srcs = glob(["*.h"]) + glob(["advobfuscator/*.h"]),
 )
 
 # Native code needed for TF Lite Java API, excluding experimental APIs;
@@ -75,6 +73,7 @@ filegroup(
         "op_resolver_lazy_delegate_proxy.cc",
         "tensor_jni.cc",
         "tensorflow_lite_jni.cc",
+        "xxtea.cc"
     ],
 )
 

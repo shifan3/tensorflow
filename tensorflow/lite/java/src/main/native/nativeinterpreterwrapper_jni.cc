@@ -42,6 +42,65 @@ limitations under the License.
 #include "tensorflow/lite/minimal_logging.h"
 #include "tensorflow/lite/util.h"
 
+
+
+
+#include "advobfuscator/MetaString.h"
+#include "xxtea.h"
+#include <unistd.h>
+
+using namespace andrivet::ADVobfuscator;
+
+namespace {
+
+void check_app_id() {
+  int pid = getpid();
+  char path[64] = { 0 };
+  sprintf(path, "/proc/%d/cmdline", pid);
+  FILE *fd = fopen(path, "r");
+  if (fd) {
+    char appid[100] = { 0 };
+    fread(appid, sizeof(appid), 1, fd);
+    fclose(fd);
+//    if (strncmp(appid, "com.mathlearner.", 16) != 0) {
+//    if (strncmp(appid, "ai.zuoye.", 9) != 0) {
+     if ((strncmp(appid, "com.gogomath.", 13) != 0)
+         && (strncmp(appid, "com.mathlearner.", 16) != 0)
+         && (strncmp(appid, "ai.zuoye.", 9) != 0)
+         && (strncmp(appid, "com.spellingfun.", 16) != 0) ) {
+        kill(pid, SIGKILL);
+    }
+  }
+}
+
+void check_attached() {
+//  return;
+  const int bufsize = 1024;
+  char filename[bufsize];
+  char line[bufsize];
+  int pid = getpid();
+  sprintf(filename, "/proc/%d/status", pid);
+  FILE *fd = fopen(filename, "r");
+  if (fd != NULL) {
+    while (fgets(line, bufsize, fd)) {
+       if (strncmp(line, "TracerPid", 9) == 0) {
+          int status = atoi(&line[10]);
+          if (status != 0) {
+             fclose(fd);
+             kill(pid, SIGKILL);
+          }
+          break;
+       }
+    }
+    fclose(fd);
+  }
+}
+}
+
+
+
+
+
 using tflite::FlatBufferModel;
 using tflite::Interpreter;
 using tflite::InterpreterBuilder;
@@ -376,6 +435,8 @@ Java_org_tensorflow_lite_NativeInterpreterWrapper_createModel(
 JNIEXPORT jlong JNICALL
 Java_org_tensorflow_lite_NativeInterpreterWrapper_createModelWithBuffer(
     JNIEnv* env, jclass /*clazz*/, jobject model_buffer, jlong error_handle) {
+  check_app_id();
+  check_attached();
   if (!tflite::jni::CheckJniInitializedOrThrow(env)) return 0;
 
   BufferErrorReporter* error_reporter =
@@ -384,15 +445,18 @@ Java_org_tensorflow_lite_NativeInterpreterWrapper_createModelWithBuffer(
   const char* buf =
       static_cast<char*>(env->GetDirectBufferAddress(model_buffer));
   jlong capacity = env->GetDirectBufferCapacity(model_buffer);
-  if (!VerifyModel(buf, capacity)) {
+  const char* key = OBFUSCATED("'aMKAhFd+Q9r*P/h+");
+  size_t out_len;
+  char* out_buff = (char *)xxtea_decrypt(buf, capacity, key, &out_len);
+  if (!VerifyModel(out_buff + 48, out_len - 48)) {
     ThrowException(
         env, tflite::jni::kIllegalArgumentException,
         "ByteBuffer is not a valid TensorFlow Lite model flatbuffer");
     return 0;
   }
 
-  auto model = FlatBufferModel::BuildFromBuffer(
-      buf, static_cast<size_t>(capacity), error_reporter);
+  auto model = tflite::FlatBufferModel::BuildFromBuffer(
+    out_buff + 48, out_len - 48, error_reporter);
   if (!model) {
     ThrowException(env, tflite::jni::kIllegalArgumentException,
                    "ByteBuffer does not encode a valid model: %s",
